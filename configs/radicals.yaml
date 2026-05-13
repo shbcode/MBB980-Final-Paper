@@ -1,0 +1,20 @@
+# Experiment 3: Chinese radical sensitivity
+output_dir: results/radical_sensitivity
+seed: 0
+
+# Optional CSV with: char,pinyin,radical,freq_rank
+# Leave null to use the small built-in seed list.
+dataset_csv: null
+
+n_pairs: 80
+n_odd_one_out: 40
+max_new_tokens: 16
+temperature: 0.0
+
+# Tokenizer used to detect "same first token" condition.
+measure_tokenizer: qwen25
+
+backend:
+  kind: dummy
+  # kind: hf_local
+  # model_id: Qwen/Qwen2.5-7B-Instruct

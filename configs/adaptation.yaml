@@ -1,0 +1,28 @@
+# Experiment 5: tokenizer adaptation
+output_dir: results/tokenizer_adaptation
+seed: 0
+
+# "lightweight" or "heavy". Heavy mode writes a launch plan only.
+mode: lightweight
+
+base_tokenizer: qwen25
+
+# Source corpus for mining new ZH tokens.
+adaptation_corpus:
+  - { name: flores200, split: devtest }
+
+new_token_counts: [1000, 5000, 10000]
+
+# Eval slice for the before/after audit.
+eval_audit_dataset:
+  name: flores200
+  split: devtest
+  max_examples: 200
+
+# Set true to actually load the HF model and run a tiny continued-pretraining
+# loop. Requires `pip install '.[hf]'` and a GPU. The counterfactual audit
+# always runs regardless of `do_train`.
+do_train: false
+train_steps: 200
+train_lr: 1.0e-5
+train_batch_size: 4

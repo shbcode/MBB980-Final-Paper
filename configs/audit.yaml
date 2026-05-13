@@ -1,0 +1,37 @@
+# Experiment 1: tokenization audit
+output_dir: results/tokenization_audit
+cache_dir: data/raw
+languages: [en, zh]
+seed: 0
+bootstrap_n: 2000
+
+# Datasets to audit. `name` -> loaders.load_bilingual.
+# Each entry can override `split` and `max_examples`.
+datasets:
+  - { name: flores200, split: devtest, max_examples: 1012 }
+  # - { name: xnli,      split: validation, max_examples: 500 }
+  # - { name: xquad,     max_examples: 500 }
+
+# Tokenizers may be:
+#   - a preset string (see src.tokenizers.list_tokenizers())
+#   - a dict {kind, ...} for custom configs
+# Anything that fails to load is logged and skipped (the audit still runs).
+tokenizers:
+  - tiktoken_cl100k
+  - tiktoken_o200k
+  - llama3
+  - qwen25
+  - byte
+  - char
+  # Example custom SentencePiece (uncomment after training a model):
+  # - { kind: sentencepiece, model_path: models/sp_bpe.model,
+  #     family_hint: bpe, name: sp_bpe_zh }
+
+# Normalization is identical across languages so any disparity isn't from
+# whitespace/punctuation cleanup choices.
+normalization:
+  unicode_nfkc: true
+  punctuation: false
+  numbers: false
+  simplify: false
+  collapse_whitespace: true

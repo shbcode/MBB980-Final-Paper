@@ -1,0 +1,7 @@
+id,language,prompt,answer
+zh-001,zh,"将以下句子翻译成英文：今天天气很好。",
+zh-002,zh,"42 加 17 等于多少？",59
+zh-003,zh,"请用一句话总结：人工智能正在改变软件工程。",
+en-001,en,"Translate to Chinese: The weather is great today.",
+en-002,en,"What is 42 + 17?",59
+en-003,en,"Summarize in one sentence: AI is changing software engineering.",

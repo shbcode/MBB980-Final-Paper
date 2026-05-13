@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Heavy/derived artifacts (still tracked through cached summaries in results/)
+data/raw/**
+!data/raw/.gitkeep
+data/processed/**
+!data/processed/.gitkeep
+!data/processed/*.csv
+results/**/runs/**
+results/**/*.tmp
+notebooks/.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

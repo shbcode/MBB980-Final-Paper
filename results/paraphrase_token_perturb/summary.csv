@@ -1,0 +1,7 @@
+transform,n,mean_stability_exact,mean_stability_jaccard,mean_delta_tokens,delta_accuracy
+identity,6,1.0,1.0,0.0,0.0
+numerals_arabic,6,1.0,1.0,0.16666666666666666,0.0
+punct_ascii,6,1.0,1.0,0.0,0.0
+punct_fullwidth,6,1.0,1.0,0.0,0.0
+to_simplified,6,1.0,1.0,0.0,0.0
+to_traditional,6,1.0,1.0,1.0,0.0

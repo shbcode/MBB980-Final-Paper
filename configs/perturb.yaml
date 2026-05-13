@@ -1,0 +1,30 @@
+# Experiment 4: paraphrase vs token perturbation
+output_dir: results/paraphrase_token_perturb
+seed: 0
+
+# Required: CSV with columns id,language,prompt[,answer].
+prompt_csv: data/processed/perturb_prompts.csv
+
+# Optional: CSV with columns id,language,original,paraphrase[,answer].
+paraphrase_csv: null
+
+# Subset of available transforms.
+transforms:
+  - identity
+  - punct_ascii
+  - punct_fullwidth
+  - numerals_arabic
+  - to_traditional
+  - to_simplified
+
+# Optional synonym dictionary applied as the `synonym_swap` transform.
+synonyms: {}
+  # 计算机: 电脑
+  # 错误: 报错
+
+measure_tokenizer: qwen25
+max_new_tokens: 64
+temperature: 0.0
+
+backend:
+  kind: dummy

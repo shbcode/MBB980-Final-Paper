@@ -1,0 +1,35 @@
+# Experiment 2: fixed-context fairness
+output_dir: results/fixed_context
+cache_dir: data/raw
+seed: 0
+
+task: xnli
+languages: [en, zh]
+budgets: [512, 1024, 2048]
+n_query: 50
+demo_pool: 32
+
+instructions:
+  en: "Classify the relation between premise and hypothesis as one of: entailment, neutral, contradiction."
+  zh: "判断前提和假设之间的关系，回答：蕴含、中立 或 矛盾。"
+
+# Tokenizer used to *measure* the budget (matches the served model in production).
+measure_tokenizer: tiktoken_cl100k
+
+# Backend for actual generation.
+# `dummy` is the offline default; switch to hf_local or openai for real eval.
+backend:
+  kind: dummy
+  # kind: hf_local
+  # model_id: meta-llama/Meta-Llama-3.1-8B-Instruct
+  # dtype: bfloat16
+  # ---
+  # kind: openai
+  # model: gpt-4o-mini
+
+max_new_tokens: 16
+temperature: 0.0
+
+# Optional ablations:
+equal_demo_count: null   # if set, both languages use the same number of demos
+byte_normalized: false
