@@ -91,25 +91,38 @@ def _measure_with_extra_tokens(
 ) -> list[int]:
     """Approximate token count after adding `extra_tokens` to the base tokenizer.
 
-    We greedily replace longest matching extras with single tokens, then count
-    base-tokenizer tokens for the remaining text. This is a *fast* proxy for
-    embedding extension; the actual extension at training time may differ.
+    Method: for each text, start from the baseline base-tokenizer count, then
+    subtract the per-occurrence savings of every extra piece that occurs.
+    Each occurrence of a piece that the base tokenizer would have split into K
+    tokens saves (K - 1) tokens once the piece becomes its own single token.
+
+    This is a fast, conservative proxy for true vocabulary extension: it
+    assumes pieces would tokenize as exactly 1 token after addition (standard
+    BPE-merge assumption) and ignores piece overlap (longest-match-first).
     """
     if not extra_tokens:
         return [base_tok.count(t) for t in texts]
+
+    # Pre-compute per-piece savings; sorted longest-first so the longest match
+    # wins when shorter pieces are substrings of longer ones.
     sorted_extras = sorted(extra_tokens, key=len, reverse=True)
+    piece_savings = {p: max(base_tok.count(p) - 1, 0) for p in sorted_extras}
+
     counts: list[int] = []
     for text in texts:
-        merged = 0
+        baseline = base_tok.count(text)
         remaining = text
+        savings = 0
         for piece in sorted_extras:
-            if not remaining:
-                break
+            if not remaining or piece not in remaining:
+                continue
             n_hits = remaining.count(piece)
-            if n_hits:
-                merged += n_hits
-                remaining = remaining.replace(piece, " ")  # space separates fragments
-        counts.append(merged + base_tok.count(remaining))
+            savings += n_hits * piece_savings[piece]
+            # Replace with a placeholder of the SAME length to preserve
+            # subsequent string indices but prevent shorter pieces from
+            # double-matching inside longer ones.
+            remaining = remaining.replace(piece, "\x00" * len(piece))
+        counts.append(max(baseline - savings, 1))
     return counts
 
 
@@ -173,8 +186,10 @@ def _lightweight_mode(cfg: AdaptConfig) -> dict[str, Any]:
     en_eval = [p.text for p in eval_pairs if p.language == "en"]
     zh_eval = [p.text for p in eval_pairs if p.language == "zh"]
 
-    candidates = _candidate_zh_ngrams(zh_texts, n_max=4, min_count=5)
-    log.info("Mined %d candidate Han n-grams (min_count=5)", len(candidates))
+    # min_count=2 keeps the candidate pool wide enough to differentiate
+    # 1k/5k/10k budgets even on a small adaptation corpus like FLORES devtest.
+    candidates = _candidate_zh_ngrams(zh_texts, n_max=4, min_count=2)
+    log.info("Mined %d candidate Han n-grams (min_count=2)", len(candidates))
 
     # Baseline audit.
     base_en = [base_tok.count(t) for t in en_eval]

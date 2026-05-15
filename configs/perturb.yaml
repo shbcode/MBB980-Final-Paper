@@ -26,5 +26,14 @@ measure_tokenizer: qwen25
 max_new_tokens: 64
 temperature: 0.0
 
+# Default: OpenAI gpt-4o-mini. Requires OPENAI_API_KEY.
+# Estimated cost (12 prompts x ~7 transforms x 2 calls each): <$0.01.
 backend:
-  kind: dummy
+  kind: openai
+  model: gpt-4o-mini
+  # --- Alternative: local Qwen
+  # kind: hf_local
+  # model_id: Qwen/Qwen2.5-7B-Instruct
+  # dtype: bfloat16
+  # --- Offline smoke test (degenerate results)
+  # kind: dummy

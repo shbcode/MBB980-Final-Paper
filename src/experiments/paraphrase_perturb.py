@@ -257,9 +257,23 @@ def run(cfg_dict: dict[str, Any]) -> dict[str, Any]:
 
 
 def _maybe_correct(response: str, gold: Any) -> float | None:
+    """Substring-match a gold answer inside a response.
+
+    Pandas reads CSVs with mixed empty + integer answer columns as float64
+    (e.g. `59` -> `59.0`), and `'59.0' in '... equals 59.'` is False.
+    To avoid that false-negative, normalise integer-valued floats back to
+    their integer string form before matching.
+    """
     if gold is None or (isinstance(gold, float) and np.isnan(gold)):
         return None
-    return float(str(gold).strip().lower() in (response or "").strip().lower())
+    if isinstance(gold, float) and gold.is_integer():
+        gold_str = str(int(gold))
+    else:
+        gold_str = str(gold)
+    gold_str = gold_str.strip().lower()
+    if not gold_str:
+        return None
+    return float(gold_str in (response or "").strip().lower())
 
 
 def _plot_paired_variance(df: pd.DataFrame, path) -> None:

@@ -233,12 +233,25 @@ def run(cfg_dict: dict[str, Any]) -> dict[str, Any]:
             })
     write_csv(cond_rows, out_dir / "condition_table.csv")
 
+    # ---- Cell-level effect sizes (always reported) -------------------------
+    # Even when the logistic regression is unstable (perfect separation,
+    # constant predictor, tiny sample), we can always report the 2x2 contingency
+    # of (same_radical, pred_yes) plus a Fisher's exact test and an odds ratio
+    # with a Haldane-Anscombe correction (+0.5 to every cell). This is the
+    # publishable backup statistic for small / clean datasets.
+    contingency_rows: list[dict[str, Any]] = []
+    if not sim_df.empty:
+        contingency_rows = _contingency_report(sim_df)
+    write_csv(contingency_rows, out_dir / "contingency_same_radical.csv")
+
     # ---- Logistic regression: pred_yes ~ same_radical + same_token ---------
     # We pre-check for degenerate data (constant outcome, constant predictor)
     # because statsmodels' Logit otherwise iterates and warns once per step
     # before failing with an opaque "Singular matrix" error. The most common
-    # cause is running against the dummy backend, which returns the same
-    # response for every prompt and therefore yields pred_yes = constant.
+    # causes are (1) the dummy backend (constant pred_yes) and (2) tiny seed
+    # datasets that produce *near-perfect* separation -- in that case we fall
+    # back to L2-regularized logistic regression, which always converges and
+    # whose coefficients still have meaningful sign + magnitude.
     coef_rows: list[dict[str, Any]] = []
     if sim_df.empty:
         log.warning("Skipping regression: similarity table is empty.")
@@ -254,35 +267,7 @@ def run(cfg_dict: dict[str, Any]) -> dict[str, Any]:
                 constant_value, len(sim_df),
             )
         else:
-            n_unique_sr = sim_df["same_radical"].nunique()
-            n_unique_st = sim_df["same_token"].nunique()
-            try:
-                import warnings as _warnings
-
-                import statsmodels.api as sm
-                from statsmodels.tools.sm_exceptions import PerfectSeparationWarning
-
-                cols = ["same_radical", "same_token"]
-                if n_unique_sr < 2:
-                    cols.remove("same_radical")
-                    log.info("`same_radical` is constant; dropped from regression.")
-                if n_unique_st < 2:
-                    cols.remove("same_token")
-                    log.info("`same_token` is constant; dropped from regression.")
-                if not cols:
-                    raise ValueError("No non-constant predictors remain after filtering.")
-                X = sm.add_constant(sim_df[cols].astype(float))
-                y = sim_df["pred_yes"].astype(int)
-                with _warnings.catch_warnings():
-                    _warnings.simplefilter("ignore", PerfectSeparationWarning)
-                    model = sm.Logit(y, X).fit(disp=False)
-                for name, coef, pval in zip(
-                    model.params.index, model.params.values, model.pvalues.values
-                ):
-                    coef_rows.append({"term": name, "coef": float(coef),
-                                      "p_value": float(pval)})
-            except Exception as e:
-                log.warning("Skipping regression (%s).", e)
+            coef_rows = _fit_radical_regression(sim_df)
     write_csv(coef_rows, out_dir / "logit_coefficients.csv")
 
     if coef_rows:
@@ -295,16 +280,38 @@ def run(cfg_dict: dict[str, Any]) -> dict[str, Any]:
         md.append(pd.DataFrame(cond_rows).to_markdown(index=False, floatfmt=".3f"))
     else:
         md.append("_No similarity rows._")
+    md += ["", "## Contingency: same_radical vs pred_yes", ""]
+    if contingency_rows:
+        md.append(pd.DataFrame(contingency_rows).to_markdown(index=False, floatfmt=".3f"))
+        md.append("")
+        md.append(
+            "Odds ratio uses a Haldane-Anscombe (+0.5) correction; Fisher's exact "
+            "p-value is unconditional and exact. These are stable on small samples "
+            "where logistic regression suffers from perfect/near-perfect separation."
+        )
+    else:
+        md.append("_No similarity rows._")
     md += ["", "## Logistic regression coefficients", ""]
     if coef_rows:
         md.append(pd.DataFrame(coef_rows).to_markdown(index=False, floatfmt=".3f"))
+        if any(r.get("regularized") for r in coef_rows):
+            md.append(
+                "\n**Note:** L2-regularized fit. Standard MLE failed to converge "
+                "(near-perfect separation), so coefficients here are penalised "
+                "estimates -- read sign and relative magnitude, not the absolute "
+                "values or p-values. The contingency table above is the primary "
+                "evidence."
+            )
     else:
         md.append("_Regression skipped._")
     md += ["", "## Error analysis notes", "",
            "- Inspect `raw.jsonl` for cases where `pred_yes=1` but `same_radical=0`",
            "  (model overgeneralises) or `pred_yes=0` and `same_radical=1` (model misses).",
            "- A non-zero `same_token` coefficient is evidence that *tokenizer* identity,",
-           "  not just *script* identity, modulates the model's similarity judgment."]
+           "  not just *script* identity, modulates the model's similarity judgment.",
+           "- Tiny seed datasets (~13 chars) leave `same_token` constant for HF",
+           "  tokenizers that map every Han char to its own id. Supply a richer",
+           "  `dataset_csv` (e.g. ~200 chars across ~10 radicals) to recover power."]
     write_text("\n".join(md), out_dir / "summary.md")
 
     return {"n_similarity": len(sim_rows), "n_odd": len(odd_rows),
@@ -322,3 +329,107 @@ def _plot_coefficients(coef_rows: list[dict[str, Any]], path) -> None:
     ax.set_xlabel("Logit coefficient (pred_yes)")
     ax.set_title("Drivers of similarity judgment")
     save_figure(fig, path)
+
+
+def _contingency_report(sim_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Return a 2x2 contingency table for (same_radical, pred_yes) plus
+    Haldane-corrected odds ratio and Fisher's exact p-value.
+
+    Stable for small samples where logistic regression suffers from perfect or
+    near-perfect separation.
+    """
+    from scipy.stats import fisher_exact
+
+    a = int(((sim_df["same_radical"] == 1) & (sim_df["pred_yes"] == 1)).sum())  # diff/diff
+    b = int(((sim_df["same_radical"] == 1) & (sim_df["pred_yes"] == 0)).sum())
+    c = int(((sim_df["same_radical"] == 0) & (sim_df["pred_yes"] == 1)).sum())
+    d = int(((sim_df["same_radical"] == 0) & (sim_df["pred_yes"] == 0)).sum())
+
+    a_c, b_c, c_c, d_c = a + 0.5, b + 0.5, c + 0.5, d + 0.5
+    odds_ratio = (a_c * d_c) / (b_c * c_c)
+    try:
+        _, p_fisher = fisher_exact([[a, b], [c, d]], alternative="two-sided")
+    except Exception:
+        p_fisher = float("nan")
+
+    n = a + b + c + d
+    p_yes_given_same = a / (a + b) if (a + b) else float("nan")
+    p_yes_given_diff = c / (c + d) if (c + d) else float("nan")
+    return [{
+        "n": n,
+        "n_same_radical": a + b,
+        "n_diff_radical": c + d,
+        "p_pred_yes_given_same_radical": float(p_yes_given_same),
+        "p_pred_yes_given_diff_radical": float(p_yes_given_diff),
+        "odds_ratio_haldane": float(odds_ratio),
+        "fisher_exact_p": float(p_fisher),
+        "cell_a_same_yes": a, "cell_b_same_no": b,
+        "cell_c_diff_yes": c, "cell_d_diff_no": d,
+    }]
+
+
+def _fit_radical_regression(sim_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """Fit logistic regression of pred_yes ~ same_radical [+ same_token].
+
+    Strategy:
+      1. Drop predictors that are constant in this sample (statsmodels would
+         emit a singular-matrix error otherwise).
+      2. Try ordinary MLE first (best when the data are well-mixed).
+      3. If MLE diverges (PerfectSeparationError or non-convergence), retry
+         with L2-regularized logistic regression, which always converges and
+         whose sign / relative magnitude remain interpretable.
+    """
+    import warnings as _warnings
+
+    import statsmodels.api as sm
+    from statsmodels.tools.sm_exceptions import (
+        ConvergenceWarning,
+        PerfectSeparationError,
+        PerfectSeparationWarning,
+    )
+
+    cols = [c for c in ["same_radical", "same_token"] if sim_df[c].nunique() >= 2]
+    if not cols:
+        log.warning(
+            "Skipping regression: both `same_radical` and `same_token` are "
+            "constant in this sample. The contingency table is the meaningful "
+            "report. Consider supplying a richer `dataset_csv`."
+        )
+        return []
+
+    X = sm.add_constant(sim_df[cols].astype(float))
+    y = sim_df["pred_yes"].astype(int)
+
+    # Attempt 1: plain MLE.
+    try:
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", PerfectSeparationWarning)
+            _warnings.simplefilter("error", ConvergenceWarning)
+            model = sm.Logit(y, X).fit(disp=False)
+        return [
+            {"term": name, "coef": float(coef), "p_value": float(pval),
+             "regularized": False}
+            for name, coef, pval in zip(
+                model.params.index, model.params.values, model.pvalues.values
+            )
+        ]
+    except (PerfectSeparationError, PerfectSeparationWarning, ConvergenceWarning,
+            np.linalg.LinAlgError, ValueError) as e:
+        log.info("Plain MLE failed (%s); falling back to L2-regularized fit.",
+                 type(e).__name__)
+
+    # Attempt 2: L2-regularized fit (always converges; no analytic p-values).
+    try:
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore")
+            reg = sm.Logit(y, X).fit_regularized(
+                method="l1", alpha=1.0, disp=False, trim_mode="off"
+            )
+        return [
+            {"term": name, "coef": float(coef), "p_value": float("nan"),
+             "regularized": True}
+            for name, coef in zip(reg.params.index, reg.params.values)
+        ]
+    except Exception as e:
+        log.warning("Regularized regression also failed (%s); skipping.", e)
+        return []

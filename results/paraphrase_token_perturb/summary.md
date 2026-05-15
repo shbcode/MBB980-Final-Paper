@@ -4,12 +4,12 @@
 
 | transform       |   n |   mean_stability_exact |   mean_stability_jaccard |   mean_delta_tokens |   delta_accuracy |
 |:----------------|----:|-----------------------:|-------------------------:|--------------------:|-----------------:|
-| identity        |   6 |                  1.000 |                    1.000 |               0.000 |            0.000 |
-| numerals_arabic |   6 |                  1.000 |                    1.000 |               0.167 |            0.000 |
+| identity        |   6 |                  0.667 |                    0.781 |               0.000 |            0.000 |
+| numerals_arabic |   6 |                  0.833 |                    0.833 |               0.167 |            0.000 |
 | punct_ascii     |   6 |                  1.000 |                    1.000 |               0.000 |            0.000 |
-| punct_fullwidth |   6 |                  1.000 |                    1.000 |               0.000 |            0.000 |
-| to_simplified   |   6 |                  1.000 |                    1.000 |               0.000 |            0.000 |
-| to_traditional  |   6 |                  1.000 |                    1.000 |               1.000 |            0.000 |
+| punct_fullwidth |   6 |                  0.667 |                    0.758 |               0.000 |            0.000 |
+| to_simplified   |   6 |                  0.833 |                    0.833 |               0.000 |            0.000 |
+| to_traditional  |   6 |                  0.500 |                    0.725 |               1.000 |            0.000 |
 
 ## Reading guide
 

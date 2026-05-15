@@ -1,0 +1,2 @@
+n,n_same_radical,n_diff_radical,p_pred_yes_given_same_radical,p_pred_yes_given_diff_radical,odds_ratio_haldane,fisher_exact_p,cell_a_same_yes,cell_b_same_no,cell_c_diff_yes,cell_d_diff_no
+200,100,100,0.26,0.01,23.595078299776286,7.329150869133222e-08,26,74,1,99

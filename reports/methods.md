@@ -73,9 +73,19 @@ backend, score with the task metric, and aggregate. We report `examples_fit`,
 ### 5.3 Chinese radical sensitivity (Experiment 3)
 
 Triples and pairs are constructed with controlled crossings of `same_radical`
-and `same_token`. We run similarity judgment and odd-one-out at temperature 0
-and fit logistic regressions to separate radical-driven from
-tokenizer-driven judgments.
+and `same_token` from a 108-character bilingual seed CSV
+(`data/processed/radical_chars.csv`) covering ten common radicals at HSK 1-4
+frequency. We use `tiktoken_cl100k_base` as the `measure_tokenizer` because
+it fragments many Han characters into 2-3 byte tokens, providing real
+variance in `same_token`; tokenizers that map every Han character to its own
+id (Qwen, Llama 3) leave `same_token` constant and statistically uninformative.
+
+We run similarity judgment and odd-one-out at temperature 0 and fit logistic
+regressions to separate radical-driven from tokenizer-driven judgments. As a
+robustness check we also report a Haldane-corrected odds ratio plus Fisher's
+exact p-value on the `(same_radical, pred_yes)` 2x2 table, which is stable
+under perfect/near-perfect separation. When the MLE fit fails to converge we
+fall back to L2-regularised logistic regression and flag the row.
 
 ### 5.4 Paraphrase vs token perturbation (Experiment 4)
 
@@ -86,10 +96,18 @@ on response tokens), and accuracy delta.
 
 ### 5.5 Tokenizer adaptation (Experiment 5)
 
-**Lightweight mode** mines top-frequency Han n-grams missing from the base
-tokenizer, simulates the counterfactual audit if those tokens existed, and
-optionally extends an HF tokenizer + resizes the embedding table + runs a
-short continued-pretraining loop on a small EN/ZH mix.
+**Lightweight mode** mines Han n-grams of length 1-4 from the adaptation
+corpus that the base tokenizer fragments (`min_count=2` to keep the candidate
+pool wide enough to differentiate 1k/5k/10k budgets on small corpora). The
+counterfactual token count after extension is computed by subtracting
+per-occurrence savings — each occurrence of a piece that the base tokenizer
+splits into `K` tokens saves `K-1` tokens once the piece becomes one token —
+using longest-match-first replacement. This is a fast proxy for true
+embedding extension; the assumption that pieces tokenise as exactly one
+token after addition is the standard BPE-merge assumption.
+
+It optionally also extends an HF tokenizer + resizes the embedding table +
+runs a short continued-pretraining loop on a small EN/ZH mix.
 
 **Heavy mode** prints a launch plan for training small matched decoder-only
 models from scratch with different tokenizers; actual training is delegated to

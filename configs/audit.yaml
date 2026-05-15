@@ -19,6 +19,10 @@ datasets:
 tokenizers:
   - tiktoken_cl100k
   - tiktoken_o200k
+  # `llama3` is a GATED HuggingFace repo (meta-llama/Meta-Llama-3.1-8B-Instruct).
+  # Requires (1) accepting the license on the model page in your HF account
+  # and (2) `huggingface-cli login` with HF_TOKEN. Otherwise it is silently
+  # skipped and the audit still runs on the other tokenizers.
   - llama3
   - qwen25
   - byte

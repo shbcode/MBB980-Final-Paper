@@ -17,15 +17,24 @@ instructions:
 measure_tokenizer: tiktoken_cl100k
 
 # Backend for actual generation.
-# `dummy` is the offline default; switch to hf_local or openai for real eval.
+# Default: OpenAI gpt-4o-mini (cheap, multilingual, lowest setup friction).
+# Requires the OPENAI_API_KEY environment variable.
+# Estimated cost for this config (50 queries x 3 budgets x 2 langs ~= 300 calls,
+# avg ~1k prompt tokens, ~10 completion tokens): ~$0.10 for one full run.
 backend:
-  kind: dummy
+  kind: openai
+  model: gpt-4o-mini
+  # --- Alternative: local HuggingFace model (needs `pip install '.[hf]'` and a GPU)
   # kind: hf_local
-  # model_id: meta-llama/Meta-Llama-3.1-8B-Instruct
+  # model_id: Qwen/Qwen2.5-7B-Instruct
   # dtype: bfloat16
-  # ---
+  # --- Alternative: Together AI (OpenAI-compatible). Requires TOGETHER_API_KEY.
   # kind: openai
-  # model: gpt-4o-mini
+  # base_url: https://api.together.xyz/v1
+  # api_key: ${TOGETHER_API_KEY}
+  # model: meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo
+  # --- Offline smoke test (returns "OK" for everything; metrics will be degenerate)
+  # kind: dummy
 
 max_new_tokens: 16
 temperature: 0.0

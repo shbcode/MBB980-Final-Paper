@@ -2,19 +2,30 @@
 output_dir: results/radical_sensitivity
 seed: 0
 
-# Optional CSV with: char,pinyin,radical,freq_rank
-# Leave null to use the small built-in seed list.
-dataset_csv: null
+# CSV with: char,pinyin,radical,freq_rank
+# 108 chars across 10 radicals (water, mountain, wood, fire, heart, mouth,
+# person, woman, sun) selected for HSK 1-4 frequency.
+dataset_csv: data/processed/radical_chars.csv
 
-n_pairs: 80
-n_odd_one_out: 40
+n_pairs: 200
+n_odd_one_out: 80
 max_new_tokens: 16
 temperature: 0.0
 
 # Tokenizer used to detect "same first token" condition.
-measure_tokenizer: qwen25
+# IMPORTANT: use a tokenizer that fragments Han chars (cl100k_base splits
+# many chars into 2-3 byte tokens; Qwen does not). With Qwen, every Han char
+# is its own token id, so `same_token` is constant and useless as a predictor.
+measure_tokenizer: tiktoken_cl100k
 
+# Default: OpenAI gpt-4o-mini. Requires OPENAI_API_KEY.
+# Estimated cost for this config (~120 calls, ~50 prompt tokens each): <$0.01.
 backend:
-  kind: dummy
+  kind: openai
+  model: gpt-4o-mini
+  # --- Alternative: local Qwen (Chinese-friendly)
   # kind: hf_local
   # model_id: Qwen/Qwen2.5-7B-Instruct
+  # dtype: bfloat16
+  # --- Offline smoke test (degenerate results)
+  # kind: dummy

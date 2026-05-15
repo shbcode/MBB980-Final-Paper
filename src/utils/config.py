@@ -8,12 +8,36 @@ evolve without code churn.
 
 from __future__ import annotations
 
+import os
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+# Matches ${VAR} and ${VAR:-default}. Used for shell-style env-var expansion in
+# YAML string values (e.g. `api_key: ${TOGETHER_API_KEY}`).
+_ENV_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*?))?\}")
+
+
+def _expand_env_in_string(s: str) -> str:
+    def repl(m: re.Match[str]) -> str:
+        name, default = m.group(1), m.group(2)
+        return os.environ.get(name, default if default is not None else m.group(0))
+
+    return _ENV_PATTERN.sub(repl, s)
+
+
+def _expand_env(value: Any) -> Any:
+    if isinstance(value, str):
+        return _expand_env_in_string(value)
+    if isinstance(value, Mapping):
+        return {k: _expand_env(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_expand_env(v) for v in value]
+    return value
 
 
 class Config(dict):
@@ -63,6 +87,7 @@ def load_config(path: str | Path) -> Config:
         raw = yaml.safe_load(f) or {}
     if not isinstance(raw, dict):
         raise ValueError(f"Top-level YAML must be a mapping, got {type(raw).__name__}")
+    raw = _expand_env(raw)
     cfg = _wrap(raw)
     cfg["__source__"] = str(p.resolve())
     return cfg
