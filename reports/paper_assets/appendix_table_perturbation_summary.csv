@@ -1,0 +1,7 @@
+delta_accuracy,mean_stability_jaccard,mean_delta_tokens,mean_stability_exact,transform,n
+0.0,0.781,0.0,0.667,identity,6
+0.0,0.833,0.167,0.833,numerals_arabic,6
+0.0,1.0,0.0,1.0,punct_ascii,6
+0.0,0.758,0.0,0.667,punct_fullwidth,6
+0.0,0.833,0.0,0.833,to_simplified,6
+0.0,0.725,1.0,0.5,to_traditional,6

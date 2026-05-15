@@ -1,0 +1,7 @@
+Quantity,Estimate,Detail
+P(predicted similar | same radical),0.260,n=100
+P(predicted similar | different radical),0.010,n=100
+Odds ratio (same vs different radical),23.60,Haldane-Anscombe corrected
+Fisher exact p,7.3e-08,two-sided
+Logit β(same_radical),+3.41,p = 0.001
+Logit β(same_token),+1.19,p = 0.080

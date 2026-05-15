@@ -31,9 +31,17 @@ python -m src.run_tokenizer_adaptation --config configs/adaptation.yaml
 # 2. Rebuild reports / plots from cached CSVs at any time
 python -m src.reconstruct_analysis --results-dir results --report-out reports/final_report.md
 
-# 3. Open the notebook
+# 3. Build publication-ready figures and tables (PNG/PDF + CSV/MD/TeX)
+python -m src.build_paper_assets --results-dir results --out reports/paper_assets
+
+# 4. Open the notebook
 jupyter lab notebooks/final_analysis.ipynb
 ```
+
+`src.build_paper_assets` reads only cached CSVs (no network, no model calls)
+and emits paper-ready figures and tables under `reports/paper_assets/`,
+including caption drafts in `captions.md` and a per-asset README. See
+`reports/paper_assets/README.md` for the input/output mapping.
 
 If you have neither HF model access nor API keys, the experiments still run
 end-to-end against a `dummy` backend; the tokenization audit (Experiment 1)
